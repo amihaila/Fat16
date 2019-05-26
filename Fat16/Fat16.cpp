@@ -58,6 +58,7 @@ static bool make83Name(const char* str, uint8_t* name) {
       i = 8;   // place for extension
     } else {
       // illegal FAT characters
+      // AMIHAILA FIXME
       PGM_P p = PSTR("|<>^+=?/[];,*\"\\");
       uint8_t b;
       while ((b = pgm_read_byte(p++))) if (b == c) return false;
@@ -315,6 +316,7 @@ bool Fat16::init(SdCard* dev, uint8_t part) {
  *
  * LS_SIZE - %Print file size.
  */
+// AMIHAILA FIXME - references to serial arduino
 void Fat16::ls(uint8_t flags) {
   dir_t d;
   for (uint16_t index = 0; readDir(&d, &index, DIR_ATT_VOLUME_ID); index++) {
@@ -487,6 +489,7 @@ bool Fat16::open(uint16_t index, uint8_t oflag) {
  * \param[in] dir The directory structure containing the name.
  * \param[in] width Blank fill name if length is less than \a width.
  */
+// AMIHAILA FIXME
 void Fat16::printDirName(const dir_t& dir, uint8_t width) {
   uint8_t w = 0;
   for (uint8_t i = 0; i < 11; i++) {
@@ -514,6 +517,7 @@ void Fat16::printDirName(const dir_t& dir, uint8_t width) {
  *
  * \param[in] fatDate The date field from a directory entry.
  */
+// AMIHAILA FIXME
 void Fat16::printFatDate(uint16_t fatDate) {
   Serial.print(FAT_YEAR(fatDate));
   Serial.write('-');
@@ -528,6 +532,7 @@ void Fat16::printFatDate(uint16_t fatDate) {
  *
  * \param[in] fatTime The time field from a directory entry.
  */
+// AMIHAILA FIXME
 void Fat16::printFatTime(uint16_t fatTime) {
   printTwoDigits(FAT_HOUR(fatTime));
   Serial.write(':');
@@ -541,6 +546,7 @@ void Fat16::printFatTime(uint16_t fatTime) {
  *
  * \param[in] v Value to be printed, 0 <= \a v <= 99
  */
+// AMIHAILA FIXME
 void Fat16::printTwoDigits(uint8_t v) {
   char str[3];
   str[0] = '0' + v/10;
@@ -576,6 +582,7 @@ int16_t Fat16::read(void) {
  */
 int16_t Fat16::read(void* buf, uint16_t nbyte) {
   // convert void pointer to uin8_t pointer
+    // AMIHAILA FIXME - should be a c style cast
   uint8_t* dst = reinterpret_cast<uint8_t*>(buf);
 
   // error if not open for read
@@ -983,6 +990,7 @@ int16_t Fat16::write(const void* buf, uint16_t nbyte) {
  * Use Fat16::writeError to check for errors.
  * \return one for success else zero.
  */
+// AMIHAILA FIXME - overloading
 size_t Fat16::write(uint8_t b) {
   return write(&b, 1) == 1 ? 1 : 0;
 }
@@ -995,6 +1003,7 @@ size_t Fat16::write(uint8_t b) {
  * Use Fat16::writeError to check for errors.
  * \return number of bytes written or -1 if an error occurs.
  */
+// AMIHAILA FIXME - overloading
 int16_t Fat16::write(const char* str) {
   return write(str, strlen(str));
 }
@@ -1006,6 +1015,7 @@ int16_t Fat16::write(const char* str) {
  *
  * Use Fat16::writeError to check for errors.
  */
+// AMIHAILA FIXME - this can die
 void Fat16::write_P(PGM_P str) {
   for (uint8_t c; (c = pgm_read_byte(str)); str++) write(c);
 }
@@ -1017,6 +1027,7 @@ void Fat16::write_P(PGM_P str) {
  *
  * Use Fat16::writeError to check for errors.
  */
+// AMIHAILA FIXME - this can die
 void Fat16::writeln_P(PGM_P str) {
   write_P(str);
   println();

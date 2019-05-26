@@ -57,43 +57,32 @@ uint8_t const SD_ERROR_CMD1              = 0XA;
  */
 class SdCard  {
  public:
+  // SPI function pointers. This library now assumes that the caller will
+  // provide a fully initialized SPI module with their own speed.
+  // Function pointers need to be passed in to here.
+  void (*spiSendByte)(uint8_t);
+  uint8_t (*spiRecByte)(void);
+  void (*chipSelectHigh)(void);
+  void (*chipSelectLow)(void);
+
+  //
   /** Code for a SD error. See SdCard.h for definitions. */
   uint8_t errorCode;
   /** Data that may be helpful in determining the cause of an error */
   uint8_t errorData;
   
-  bool begin(uint8_t chipSelect = SS, uint8_t sckDivisor = SPI_FULL_SPEED);
+  bool begin();
   uint32_t cardSize(void);
   /**
    * Initialize an SD flash memory card with default clock rate and chip
-   * select pin.  See SdCard::begin(uint8_t chipSelectPin, uint8_t sckRateID).
+   * select pin.  See SdCard::begin(uint8_t sckRateID).
    *
    * \return true for success or false for failure.
    */
   bool init(void) {
-    return begin(SS, SPI_FULL_SPEED);
+    return begin();
   }
-  /**
-   * Initialize an SD flash memory card.
-   * 
-   * \param[in] halfSpeed set SCK rate to half speed if true else full speed.  
-   *
-   * \return true for success or false for failure.   
-   */
-  bool init(bool halfSpeed) {
-    return begin(halfSpeed ? SPI_HALF_SPEED : SPI_FULL_SPEED, SS);
-  }
-  /**
-   * Initialize an SD flash memory card.
-   *
-   * \param[in] halfSpeed set SCK rate to half speed if true else full speed.
-   * \param[in] chipSelect SD card chip select pin.
-   *
-   * \return true for success or false for failure.
-   */  
-  bool init(bool halfSpeed, uint8_t chipSelect) {
-    return begin(halfSpeed ? SPI_HALF_SPEED : SPI_FULL_SPEED, chipSelect);}
-  bool readBlock(uint32_t block, uint8_t* dst);
+
   /** 
    * Read the CID register which contains info about the card.
    * This includes Manufacturer ID, OEM ID, product name, version,
@@ -107,14 +96,13 @@ class SdCard  {
   bool readCID(cid_t* cid) {
     return readReg(CMD10, cid);
   }
+
+  bool readBlock(uint32_t block, uint8_t* dst);
   bool writeBlock(uint32_t block, const uint8_t* src);
  private:
+  bool waitForToken(uint8_t token, uint16_t timeoutMillis);
   uint8_t cardAcmd(uint8_t cmd, uint32_t arg);
   uint8_t cardCommand(uint8_t cmd, uint32_t arg);
-  uint8_t chipSelectPin_;
-  uint8_t sckDivisor_;
-  void chipSelectHigh(void);
-  void chipSelectLow(void);
   void error(uint8_t code, uint8_t data);
   void error(uint8_t code);
   bool readReg(uint8_t cmd, void* buf);

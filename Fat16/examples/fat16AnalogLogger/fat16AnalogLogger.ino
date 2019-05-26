@@ -1,3 +1,11 @@
+#include <Fat16.h>
+#include <Fat16Config.h>
+#include <Fat16mainpage.h>
+#include <SdCard.h>
+#include <SdInfo.h>
+#include <Fat16util.h>
+
+
 // A simple data logger for the analog pins
 #define CHIP_SELECT     SS // SD chip select pin
 #define LOG_INTERVAL  1000 // mills between entries
@@ -13,6 +21,36 @@ SdCard card;
 Fat16 file;
 uint32_t syncTime = 0;     // time of last sync()
 uint32_t logTime  = 0;     // time data was logged
+
+//------------------------------------------------------------------------------
+// SPI static functions
+//
+// clock byte in
+static uint8_t spiRec(void) {
+  SPDR = 0xff;
+  while (!(SPSR & (1 << SPIF)));
+  return SPDR;
+}
+//------------------------------------------------------------------------------
+// clock byte out
+static void spiSend(uint8_t b) {
+  SPDR = b;
+  while (!(SPSR & (1 << SPIF)));
+}
+//------------------------------------------------------------------------------
+static void csHigh(void) {
+  digitalWrite(CHIP_SELECT, HIGH);
+}
+//------------------------------------------------------------------------------
+static void csLow(void) {
+  uint8_t r = 0;
+
+  for (uint8_t b = 2; SPI_FULL_SPEED > b && r < 6; b <<= 1, r++);
+  // See avr processor documentation
+  SPCR = (1 << SPE) | (1 << MSTR) | (r >> 1);
+  SPSR = r & 1 || r == 6 ? 0 : 1 << SPI2X;
+  digitalWrite(CHIP_SELECT, LOW);
+}
 
 // store error strings in flash to save RAM
 #define error(s) error_P(PSTR(s))
@@ -36,8 +74,15 @@ void setup(void) {
   while (!Serial.available());
 #endif //WAIT_TO_START
 
+  card.spiSendByte = spiSend;
+  card.spiRecByte = spiRec;
+  card.chipSelectHigh = csHigh;
+  card.chipSelectLow = csLow;
+
+  pinMode(CHIP_SELECT, OUTPUT);
+
   // initialize the SD card
-  if (!card.begin(CHIP_SELECT)) error("card.begin");
+  if (!card.begin()) error("card.begin");
   
   // initialize a FAT16 volume
   if (!Fat16::init(&card)) error("Fat16::init");
