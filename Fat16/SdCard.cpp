@@ -23,20 +23,15 @@
 //==============================================================================
 // private helper functions
 //------------------------------------------------------------------------------
-
-// This is just here for now while we move over from C++ to C
-// Instead of passing in "this" for the sd card object, use our local copy.
-static SdCard *tempCard;
-
-static bool wait_for_token(SdCard *card, uint8_t token, uint16_t timeoutMillis);
-static uint8_t card_acmd(SdCard *card, uint8_t cmd, uint32_t arg);
-static uint8_t card_command(SdCard *card, uint8_t cmd, uint32_t arg);
-static void error(SdCard *card, uint8_t code, uint8_t data);
-static bool read_reg(SdCard *card, uint8_t cmd, void* buf);
-static bool read_transfer(SdCard *card, uint8_t* dst, uint16_t count);
+static bool wait_for_token(sd_card_t *card, uint8_t token, uint16_t timeoutMillis);
+static uint8_t card_acmd(sd_card_t *card, uint8_t cmd, uint32_t arg);
+static uint8_t card_command(sd_card_t *card, uint8_t cmd, uint32_t arg);
+static void error(sd_card_t *card, uint8_t code, uint8_t data);
+static bool read_reg(sd_card_t *card, uint8_t cmd, void* buf);
+static bool read_transfer(sd_card_t *card, uint8_t* dst, uint16_t count);
 
 // Wait for card to go not busy. Return false if timeout.
-static bool wait_for_token(SdCard *card, uint8_t token, uint16_t timeoutMillis) {
+static bool wait_for_token(sd_card_t *card, uint8_t token, uint16_t timeoutMillis) {
   // FIXME millis
   uint16_t t0 = millis();
   while (card->spiRecByte() != token) {
@@ -45,19 +40,19 @@ static bool wait_for_token(SdCard *card, uint8_t token, uint16_t timeoutMillis) 
   return true;
 }
 
-static uint8_t card_acmd(SdCard *card, uint8_t cmd, uint32_t arg) {
+static uint8_t card_acmd(sd_card_t *card, uint8_t cmd, uint32_t arg) {
   card_command(card, CMD55, 0);
   return card_command(card, cmd, arg);
 }
 
-static uint8_t card_command(SdCard *card, uint8_t cmd, uint32_t arg) {
+static uint8_t card_command(sd_card_t *card, uint8_t cmd, uint32_t arg) {
   uint8_t r1;
 
   // select card
   card->chipSelectLow();
 
   // wait if busy
-  wait_for_token(tempCard, 0XFF, SD_WRITE_TIMEOUT);
+  wait_for_token(card, 0XFF, SD_WRITE_TIMEOUT);
 
   // send command
   card->spiSendByte(cmd | 0x40);
@@ -73,13 +68,13 @@ static uint8_t card_command(SdCard *card, uint8_t cmd, uint32_t arg) {
   return r1;
 }
 
-static void error(SdCard *card, uint8_t code, uint8_t data) {
+static void error(sd_card_t *card, uint8_t code, uint8_t data) {
   card->errorData = data;
   card->errorCode = code;
   card->chipSelectHigh();
 }
 
-static bool read_reg(SdCard *card, uint8_t cmd, void* buf) {
+static bool read_reg(sd_card_t *card, uint8_t cmd, void* buf) {
   uint8_t* dst = reinterpret_cast<uint8_t*>(buf);
   if (card_command(card, cmd, 0)) {
     card->chipSelectHigh();
@@ -88,10 +83,10 @@ static bool read_reg(SdCard *card, uint8_t cmd, void* buf) {
   return read_transfer(card, dst, 16);
 }
 
-static bool read_transfer(SdCard *card, uint8_t* dst, uint16_t count) {
+static bool read_transfer(sd_card_t *card, uint8_t* dst, uint16_t count) {
   // wait for start of data
-  if (!wait_for_token(tempCard, DATA_START_BLOCK, SD_READ_TIMEOUT)) {
-    error(tempCard, SD_ERROR_READ_TIMEOUT, 0);
+  if (!wait_for_token(card, DATA_START_BLOCK, SD_READ_TIMEOUT)) {
+    error(card, SD_ERROR_READ_TIMEOUT, 0);
   }
 
   // FIXME - not agnostic
@@ -110,12 +105,8 @@ static bool read_transfer(SdCard *card, uint8_t* dst, uint16_t count) {
 }
 
 //==============================================================================
-// SdCard member functions
+// sd_card main functions
 //------------------------------------------------------------------------------
-
-SdCard::SdCard() {
-    tempCard = this;
-}
 
 /**
  * Determine the size of a standard SD flash memory card
@@ -166,7 +157,7 @@ bool sd_init(sd_card_t *card) {
   // start initialization and wait for completed initialization
   while ((r = card_acmd(card, ACMD41, 0)) != R1_READY_STATE) {
     if (((uint16_t)millis() - t0) > SD_INIT_TIMEOUT) {
-      error(tempCard, SD_ERROR_ACMD41, r);
+      error(card, SD_ERROR_ACMD41, r);
       return false;
     }  
   }

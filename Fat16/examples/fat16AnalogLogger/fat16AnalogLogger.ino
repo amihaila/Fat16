@@ -17,7 +17,7 @@
 #include <Fat16.h>
 #include <Fat16util.h> // use functions to print strings from flash memory
 
-SdCard card;
+sd_card_t card;
 Fat16 file;
 uint32_t syncTime = 0;     // time of last sync()
 uint32_t logTime  = 0;     // time data was logged
@@ -82,7 +82,7 @@ void setup(void) {
   pinMode(CHIP_SELECT, OUTPUT);
 
   // initialize the SD card
-  if (!card.begin()) error("card.begin");
+  if (!sd_init(&card)) error("card.begin");
   
   // initialize a FAT16 volume
   if (!Fat16::init(&card)) error("Fat16::init");

@@ -121,7 +121,7 @@ class Fat16 : public Print {
   int16_t fgets(char* str, int16_t num, char* delim = 0);
   /** \return The file's size in bytes. */
   uint32_t fileSize(void) const {return fileSize_;}
-  static bool init(SdCard* dev, uint8_t part);
+  static bool init(sd_card_t* dev, uint8_t part);
   /**
    *  Initialize a FAT16 volume.
    *
@@ -136,7 +136,7 @@ class Fat16 : public Print {
    * an I/O error.
    *
    */
-  static bool init(SdCard* dev) {
+  static bool init(sd_card_t* dev) {
     return init(dev, 1) ? true : init(dev, 0);
   }
   /**
@@ -196,7 +196,7 @@ class Fat16 : public Print {
   /** For debug only.  Do not use in applications. */
   static cache16_t* dbgBufAdd(void) {return &cacheBuffer_;}
   /** For debug only.  Do not use in applications. */
-  static void dbgSetDev(SdCard* dev) {rawDev_ = dev;}
+  static void dbgSetDev(sd_card_t* dev) {rawDev_ = dev;}
   /** For debug only.  Do not use in applications. */
   static uint8_t* dbgCacheBlock(uint32_t blockNumber) {
     return cacheRawBlock(blockNumber) ? cacheBuffer_.data : 0; }
@@ -221,7 +221,7 @@ class Fat16 : public Print {
   // block cache
   static uint8_t const CACHE_FOR_READ  = 0;    // cache a block for read
   static uint8_t const CACHE_FOR_WRITE = 1;    // cache a block and set dirty
-  static SdCard *rawDev_;             // Device
+  static sd_card_t *rawDev_;          // Device
   static cache16_t cacheBuffer_;      // 512 byte cache for raw blocks
   static uint32_t cacheBlockNumber_;  // Logical number of block in the cache
   static bool    cacheDirty_;         // cacheFlush() will write block if true
