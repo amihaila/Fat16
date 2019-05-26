@@ -74,6 +74,7 @@ typedef struct sd_card {
   uint8_t (*spiRecByte)(void);
   void (*chipSelectHigh)(void);
   void (*chipSelectLow)(void);
+  uint32_t (*millis)(void);
 
   // Code for a SD error. See SdCard.h for definitions.
   uint8_t errorCode;

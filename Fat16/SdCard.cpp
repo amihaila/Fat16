@@ -32,10 +32,9 @@ static bool read_transfer(sd_card_t *card, uint8_t* dst, uint16_t count);
 
 // Wait for card to go not busy. Return false if timeout.
 static bool wait_for_token(sd_card_t *card, uint8_t token, uint16_t timeoutMillis) {
-  // FIXME millis
-  uint16_t t0 = millis();
+  uint16_t t0 = card->millis();
   while (card->spiRecByte() != token) {
-    if (((uint16_t)millis() - t0) > timeoutMillis) return false;
+    if (((uint16_t)(card->millis()) - t0) > timeoutMillis) return false;
   }
   return true;
 }
@@ -75,7 +74,7 @@ static void error(sd_card_t *card, uint8_t code, uint8_t data) {
 }
 
 static bool read_reg(sd_card_t *card, uint8_t cmd, void* buf) {
-  uint8_t* dst = reinterpret_cast<uint8_t*>(buf);
+  uint8_t* dst = (uint8_t*)(buf);
   if (card_command(card, cmd, 0)) {
     card->chipSelectHigh();
     return false;
@@ -89,16 +88,12 @@ static bool read_transfer(sd_card_t *card, uint8_t* dst, uint16_t count) {
     error(card, SD_ERROR_READ_TIMEOUT, 0);
   }
 
-  // FIXME - not agnostic
   // start first spi transfer
-  SPDR = 0XFF;
   for (uint16_t i = 0; i < count; i++) {
-    while (!(SPSR & (1 << SPIF)));
-    dst[i] = SPDR;
-    SPDR = 0XFF;
+      dst[i] = card->spiRecByte();
   }
+
   // wait for first CRC byte
-  while (!(SPSR & (1 << SPIF)));
   card->spiRecByte();  // second CRC byte
   card->chipSelectHigh();
   return true;
@@ -137,10 +132,6 @@ bool sd_init(sd_card_t *card) {
   uint16_t t0 = (uint16_t)millis();
 
   card->chipSelectHigh();
-
-  // FIXME this should die
-  // Enable SPI, Master, clock rate F_CPU/128
-  SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR1) | (1 << SPR0);
 
   // must supply min of 74 clock cycles with CS high.
   for (uint8_t i = 0; i < 10; i++) card->spiSendByte(0XFF);
@@ -211,14 +202,11 @@ bool sd_write_block(sd_card_t *card, uint32_t blockNumber, const uint8_t* src) {
     return false;
   }
 
-  // FIXME
-  // optimize write loop
-  SPDR = DATA_START_BLOCK;
+  // write to the card
+  card->spiSendByte(DATA_START_BLOCK);
   for (uint16_t i = 0; i < 512; i++) {
-    while (!(SPSR & (1 << SPIF)));
-    SPDR = src[i];
+      card->spiSendByte(src[i]);
   }
-  while (!(SPSR & (1 << SPIF)));  // wait for last data byte
   card->spiSendByte(0xFF);  // dummy crc
   card->spiSendByte(0xFF);  // dummy crc
 

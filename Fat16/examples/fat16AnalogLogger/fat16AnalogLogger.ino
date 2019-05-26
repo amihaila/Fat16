@@ -78,6 +78,7 @@ void setup(void) {
   card.spiRecByte = spiRec;
   card.chipSelectHigh = csHigh;
   card.chipSelectLow = csLow;
+  card.millis = millis;
 
   pinMode(CHIP_SELECT, OUTPUT);
 
