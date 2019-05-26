@@ -57,6 +57,9 @@ uint8_t const SD_ERROR_CMD1              = 0XA;
  */
 class SdCard  {
  public:
+  // temp FIXME
+  SdCard();
+  
   // SPI function pointers. This library now assumes that the caller will
   // provide a fully initialized SPI module with their own speed.
   // Function pointers need to be passed in to here.
@@ -93,12 +96,11 @@ class SdCard  {
    * \return The value one, true, is returned for success and
    *         the value zero, false, is returned for failure.
    */
-  bool readCID(cid_t* cid) {
-    return readReg(CMD10, cid);
-  }
+  bool readCID(cid_t *cid);
 
   bool readBlock(uint32_t block, uint8_t* dst);
   bool writeBlock(uint32_t block, const uint8_t* src);
+ /*
  private:
   bool waitForToken(uint8_t token, uint16_t timeoutMillis);
   uint8_t cardAcmd(uint8_t cmd, uint32_t arg);
@@ -107,5 +109,6 @@ class SdCard  {
   void error(uint8_t code);
   bool readReg(uint8_t cmd, void* buf);
   bool readTransfer(uint8_t* dst, uint16_t count);
+  */
 };
 #endif  // SdCard_h
