@@ -33,11 +33,11 @@ uint32_t Fat16::rootDirStartBlock_;          // start of root dir
 uint32_t Fat16::dataStartBlock_;             // start of data clusters
 //------------------------------------------------------------------------------
 // raw block cache
-SdCard*   Fat16::rawDev_ = 0;             // class for block read and write
-uint32_t  Fat16::cacheBlockNumber_ = 0XFFFFFFFF;  // init to invalid block
-cache16_t Fat16::cacheBuffer_;            // 512 byte cache for SdCard
-bool      Fat16::cacheDirty_ = false;     // cacheFlush() write block if true
-uint32_t  Fat16::cacheMirrorBlock_ = 0;   // mirror  block for second FAT
+sd_card_t*  Fat16::rawDev_ = 0;             // class for block read and write
+uint32_t    Fat16::cacheBlockNumber_ = 0XFFFFFFFF;  // init to invalid block
+cache16_t   Fat16::cacheBuffer_;            // 512 byte cache for SdCard
+bool        Fat16::cacheDirty_ = false;     // cacheFlush() write block if true
+uint32_t    Fat16::cacheMirrorBlock_ = 0;   // mirror  block for second FAT
 //------------------------------------------------------------------------------
 // callback function for date/time
 void (*Fat16::dateTime_)(uint16_t* date, uint16_t* time) = NULL;
@@ -112,12 +112,12 @@ dir_t* Fat16::cacheDirEntry(uint16_t index, uint8_t action) {
 //
 bool Fat16::cacheFlush(void) {
   if (cacheDirty_) {
-    if (!rawDev_->writeBlock(cacheBlockNumber_, cacheBuffer_.data)) {
+    if (!sd_write_block(rawDev_, cacheBlockNumber_, cacheBuffer_.data)) {
       return false;
     }
     // mirror FAT tables
     if (cacheMirrorBlock_) {
-      if (!rawDev_->writeBlock(cacheMirrorBlock_, cacheBuffer_.data)) {
+      if (!sd_write_block(rawDev_, cacheMirrorBlock_, cacheBuffer_.data)) {
         return false;
       }
       cacheMirrorBlock_ = 0;
@@ -131,7 +131,7 @@ bool Fat16::cacheFlush(void) {
 bool Fat16::cacheRawBlock(uint32_t blockNumber, uint8_t action) {
   if (cacheBlockNumber_ != blockNumber) {
     if (!cacheFlush()) return false;
-    if (!rawDev_->readBlock(blockNumber, cacheBuffer_.data)) return false;
+    if (!sd_read_block(rawDev_, blockNumber, cacheBuffer_.data)) return false;
     cacheBlockNumber_ = blockNumber;
   }
   if (action) cacheDirty_ = true;
@@ -262,7 +262,7 @@ bool Fat16::freeChain(fat_t cluster) {
  * been successful initialized or an I/O error.
  *
  */
-bool Fat16::init(SdCard* dev, uint8_t part) {
+bool Fat16::init(sd_card_t* dev, uint8_t part) {
   // error if invalid partition
   if (part > 4) return false;
   rawDev_ = dev;
