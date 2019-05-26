@@ -121,10 +121,10 @@ SdCard::SdCard() {
  * Determine the size of a standard SD flash memory card
  * \return The number of 512 byte data blocks in the card
  */
-uint32_t SdCard::cardSize(void) {
+uint32_t sd_card_size(sd_card_t *card) {
   uint16_t c_size;
   csd_t csd;
-  if (!read_reg(tempCard, CMD9, &csd)) return 0;
+  if (!read_reg(card, CMD9, &csd)) return 0;
   uint8_t read_bl_len = csd.v1.read_bl_len;
   c_size = (csd.v1.c_size_high << 10) | (csd.v1.c_size_mid << 2) | csd.v1.c_size_low;
   uint8_t c_size_mult = (csd.v1.c_size_mult_high << 1) | csd.v1.c_size_mult_low;
@@ -138,32 +138,33 @@ uint32_t SdCard::cardSize(void) {
  * the value zero, false, is returned for failure.
  *
  */
-bool SdCard::begin(void) {
+bool sd_init(sd_card_t *card) {
 
-  errorCode = 0;
+  card->errorCode = 0;
   uint8_t r;
   // 16-bit init start time allows over a minute
   uint16_t t0 = (uint16_t)millis();
 
-  chipSelectHigh();
+  card->chipSelectHigh();
 
+  // FIXME this should die
   // Enable SPI, Master, clock rate F_CPU/128
   SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR1) | (1 << SPR0);
 
   // must supply min of 74 clock cycles with CS high.
-  for (uint8_t i = 0; i < 10; i++) spiSendByte(0XFF);
-  chipSelectLow();
+  for (uint8_t i = 0; i < 10; i++) card->spiSendByte(0XFF);
+  card->chipSelectLow();
 
   // command to go idle in SPI mode
-  while ((r = card_command(tempCard, CMD0, 0)) != R1_IDLE_STATE) {
+  while ((r = card_command(card, CMD0, 0)) != R1_IDLE_STATE) {
     if (((uint16_t)millis() - t0) > SD_INIT_TIMEOUT) {
-      error(tempCard, SD_ERROR_CMD0, r);
+      error(card, SD_ERROR_CMD0, r);
       return false;
     }
   }
 #if USE_ACMD41
   // start initialization and wait for completed initialization
-  while ((r = card_acmd(tempCard, ACMD41, 0)) != R1_READY_STATE) {
+  while ((r = card_acmd(card, ACMD41, 0)) != R1_READY_STATE) {
     if (((uint16_t)millis() - t0) > SD_INIT_TIMEOUT) {
       error(tempCard, SD_ERROR_ACMD41, r);
       return false;
@@ -171,19 +172,19 @@ bool SdCard::begin(void) {
   }
 #else  // USE_ACMD41
   // use CMD1 to initialize the card - works with MMC and some SD cards
-  while ((r = card_command(tempCard, CMD1, 0)) != R1_READY_STATE) {
+  while ((r = card_command(card, CMD1, 0)) != R1_READY_STATE) {
     if (((uint16_t)millis() - t0) > SD_INIT_TIMEOUT) {
-      error(tempCard, SD_ERROR_CMD1, r);
+      error(card, SD_ERROR_CMD1, r);
       return false;
     }   
   }
 #endif  // USE_ACMD41
-  chipSelectHigh();
+  card->chipSelectHigh();
   return true;
 }
 
-bool SdCard::readCID(cid_t *cid) {
-    return read_reg(tempCard, CMD10, cid);
+bool sd_read_cid(sd_card_t *card, cid_t *cid) {
+    return read_reg(card, CMD10, cid);
 }
 
 //------------------------------------------------------------------------------
@@ -195,12 +196,12 @@ bool SdCard::readCID(cid_t *cid) {
  * \return The value one, true, is returned for success and
  * the value zero, false, is returned for failure.
  */
-bool SdCard::readBlock(uint32_t blockNumber, uint8_t* dst) {
-  if (card_command(tempCard, CMD17, blockNumber << 9)) {
-    error(tempCard, SD_ERROR_CMD17, 0);
+bool sd_read_block(sd_card_t *card, uint32_t blockNumber, uint8_t* dst) {
+  if (card_command(card, CMD17, blockNumber << 9)) {
+    error(card, SD_ERROR_CMD17, 0);
     return false;
   }
-  return read_transfer(tempCard, dst, 512);
+  return read_transfer(card, dst, 512);
 }
 //------------------------------------------------------------------------------
 /**
@@ -211,13 +212,15 @@ bool SdCard::readBlock(uint32_t blockNumber, uint8_t* dst) {
  * \return The value one, true, is returned for success and
  * the value zero, false, is returned for failure.
  */
-bool SdCard::writeBlock(uint32_t blockNumber, const uint8_t* src) {
+bool sd_write_block(sd_card_t *card, uint32_t blockNumber, const uint8_t* src) {
   uint32_t address = blockNumber << 9;
 
-  if (card_command(tempCard, CMD24, address)) {
-    error(tempCard, SD_ERROR_CMD24, 0);
+  if (card_command(card, CMD24, address)) {
+    error(card, SD_ERROR_CMD24, 0);
     return false;
   }
+
+  // FIXME
   // optimize write loop
   SPDR = DATA_START_BLOCK;
   for (uint16_t i = 0; i < 512; i++) {
@@ -225,19 +228,19 @@ bool SdCard::writeBlock(uint32_t blockNumber, const uint8_t* src) {
     SPDR = src[i];
   }
   while (!(SPSR & (1 << SPIF)));  // wait for last data byte
-  spiSendByte(0xFF);  // dummy crc
-  spiSendByte(0xFF);  // dummy crc
+  card->spiSendByte(0xFF);  // dummy crc
+  card->spiSendByte(0xFF);  // dummy crc
 
   // get write response
-  uint8_t r1 = spiRecByte();
+  uint8_t r1 = card->spiRecByte();
   if ((r1 & DATA_RES_MASK) != DATA_RES_ACCEPTED) {
-    error(tempCard, SD_ERROR_WRITE_RESPONSE, r1);
+    error(card, SD_ERROR_WRITE_RESPONSE, r1);
     return false;
   }
   // wait for card to complete write programming
-  if (!wait_for_token(tempCard, 0XFF, SD_WRITE_TIMEOUT)) {
-      error(tempCard, SD_ERROR_WRITE_TIMEOUT, 0);
+  if (!wait_for_token(card, 0XFF, SD_WRITE_TIMEOUT)) {
+      error(card, SD_ERROR_WRITE_TIMEOUT, 0);
   }
-  chipSelectHigh();
+  card->chipSelectHigh();
   return true;
 }
